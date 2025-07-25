@@ -1,3 +1,5 @@
+import AuthSessionProvider from '@/components/auth/SessionProvider';
+import { Toaster } from 'react-hot-toast';
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -22,7 +24,10 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AuthSessionProvider>
+          {children}
+          <Toaster position="top-center" />
+        </AuthSessionProvider>
       </body>
     </html>
   );
