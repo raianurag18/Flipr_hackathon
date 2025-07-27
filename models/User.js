@@ -48,6 +48,9 @@ const UserSchema = new mongoose.Schema({
   passwordResetExpires: Date,
   emailVerified: { type: Boolean, default: false },
   emailVerificationToken: String,
+   preferences: {
+    receiveLowStockAlerts: { type: Boolean, default: true },
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
