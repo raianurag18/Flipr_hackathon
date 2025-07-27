@@ -67,7 +67,8 @@ const authOptions = {
           role: user.role,
           permissions: user.permissions,
           avatar: user.avatar,
-          department: user.department
+          department: user.department,
+          preferences: user.preferences,
         };
       }
     })
@@ -83,6 +84,7 @@ const authOptions = {
         token.permissions = user.permissions;
         token.avatar = user.avatar;
         token.department = user.department;
+        token.preferences = user.preferences;
       }
       
       // Handle session updates
@@ -98,6 +100,7 @@ const authOptions = {
       session.user.permissions = token.permissions;
       session.user.avatar = token.avatar;
       session.user.department = token.department;
+      session.user.preferences = token.preferences;
       return session;
     }
   },

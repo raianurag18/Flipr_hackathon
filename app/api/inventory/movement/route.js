@@ -4,6 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 import dbConnect from '../../../../lib/mongodb';
 import Product from '../../../../models/Product';
 import InventoryMovement from '../../../../models/InventoryMovement';
+import checkStockLevels from '../../../../lib/stockAlerter';
 
 export async function POST(request) {
   try {
@@ -97,13 +98,16 @@ export async function POST(request) {
       { path: 'userId', select: 'name' }
     ]);
 
+    // Check stock levels and send alerts if necessary
+    await checkStockLevels();
+
     return NextResponse.json({
       message: 'Stock updated successfully',
       movement,
       newStock
     });
   } catch (error) {
-    console.error('Error updating stock:', error);
+    console.error('Error in POST /api/inventory/movement:', error);
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }
