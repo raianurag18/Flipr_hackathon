@@ -489,8 +489,8 @@ export default function Dashboard() {
             </div>
             
             <div className="space-y-2">
-              {dashboardData.recentActivity.slice(0, 4).map((activity) => (
-                <MobileActivityCard key={activity.id} activity={activity} />
+              {dashboardData.recentActivity.slice(0, 4).map((activity, index) => (
+                <MobileActivityCard key={activity._id || activity.id || index} activity={activity} />
               ))}
             </div>
           </div>
@@ -516,7 +516,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               {dashboardData.topProducts.map((product, index) => (
                 <motion.div
-                  key={product.name}
+                  key={`top-product-${index}`}
                   whileTap={{ scale: 0.98 }}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
