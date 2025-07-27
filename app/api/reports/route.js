@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
-import dbConnect from '@/lib/dbConnect';
+import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import { getDay, getHours } from 'date-fns';
 

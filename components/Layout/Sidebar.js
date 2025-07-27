@@ -61,27 +61,6 @@ const navigation = [
     permission: 'view_reports',
     description: 'Analytics & Reports'
   },
-  { 
-    name: 'Alerts', 
-    href: '/alerts', 
-    icon: BellIcon, 
-    permission: 'view_inventory',
-    description: 'Stock Alerts'
-  },
-  // { 
-  //   name: 'Users', 
-  //   href: '/users', 
-  //   icon: UsersIcon, 
-  //   permission: 'manage_users',
-  //   description: 'User Management'
-  // },
-  // { 
-  //   name: 'Settings', 
-  //   href: '/settings', 
-  //   icon: CogIcon, 
-  //   permission: 'system_settings',
-  //   description: 'System Settings'
-  // }
 ];
 
 export default function Sidebar({ session, collapsed, onToggleCollapse }) {
