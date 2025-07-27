@@ -8,17 +8,36 @@ import {
   BellIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
-  XMarkIcon
+  XMarkIcon,
+  CogIcon
 } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import Sidebar from './Sidebar';
 import { cn } from '../../lib/utils';
+import toast from 'react-hot-toast';
+import Button from '../ui/Button';
 
 export default function Layout({ children }) {
   const { data: session } = useSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Notification settings state
+  const [receiveLowStockAlerts, setReceiveLowStockAlerts] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load user preferences
+  useEffect(() => {
+    console.log('Session data:', session);
+    if (session?.user?.preferences) {
+      console.log('User preferences found:', session.user.preferences);
+      setReceiveLowStockAlerts(session.user.preferences.receiveLowStockAlerts);
+    } else {
+      console.log('No user preferences found in session.');
+    }
+  }, [session]);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -38,11 +57,38 @@ export default function Layout({ children }) {
       if (mobileMenuOpen && !event.target.closest('.mobile-sidebar')) {
         setMobileMenuOpen(false);
       }
+      if (notificationMenuOpen && !event.target.closest('.notification-menu')) {
+        setNotificationMenuOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, notificationMenuOpen]);
+
+  // Save notification preferences
+  const handleSaveNotificationSettings = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ receiveLowStockAlerts }),
+      });
+
+      if (response.ok) {
+        toast.success('Notification preferences saved successfully');
+      } else {
+        toast.error('Failed to save notification preferences');
+      }
+    } catch (error) {
+      toast.error('An error occurred while saving preferences');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -165,11 +211,88 @@ export default function Layout({ children }) {
                   <MagnifyingGlassIcon className="h-5 w-5" />
                 </button>
 
-                {/* Notifications */}
-                <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-                  <BellIcon className="h-5 w-5 lg:h-6 lg:w-6" />
-                  <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white"></span>
-                </button>
+                {/* Enhanced Notifications Menu */}
+                <div className="relative notification-menu">
+                  <button 
+                    onClick={() => setNotificationMenuOpen(!notificationMenuOpen)}
+                    className="relative p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-100 rounded-lg"
+                  >
+                    <BellIcon className="h-5 w-5 lg:h-6 lg:w-6" />
+                  </button>
+
+                  {/* Notification Dropdown */}
+                  <AnimatePresence>
+                    {notificationMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 mt-2 w-80 bg-white divide-y divide-gray-100 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                      >
+                        {/* Header */}
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-gray-900">Alerts</h3>
+                            <button
+                              onClick={() => setNotificationMenuOpen(false)}
+                              className="p-1 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-100"
+                            >
+                              <XMarkIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Settings Section */}
+                        <div className="px-4 py-3 bg-gray-50">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                              <CogIcon className="h-4 w-4 mr-2" />
+                              Notification Settings
+                            </h4>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {/* Low Stock Alerts Toggle */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <label className="text-sm font-medium text-gray-700">Low Stock Alerts</label>
+                                <p className="text-xs text-gray-500">Get notified via email when products run low</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer ml-3">
+                                <input
+                                  type="checkbox"
+                                  checked={receiveLowStockAlerts}
+                                  onChange={(e) => setReceiveLowStockAlerts(e.target.checked)}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                              </label>
+                            </div>
+
+                            {/* Save Button */}
+                            <Button
+                              onClick={handleSaveNotificationSettings}
+                              disabled={isLoading}
+                              className="w-full px-3 py-2"
+                            >
+                              {isLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                  Saving...
+                                </div>
+                              ) : (
+                                'Save Settings'
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="py-2"></div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* User Menu */}
                 <Menu as="div" className="relative">
@@ -197,32 +320,6 @@ export default function Layout({ children }) {
                     leaveTo="transform opacity-0 scale-95"
                   >
                     <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white divide-y divide-gray-100 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                      <div className="px-1 py-1">
-                        <Menu.Item>
-                          {({ active }) => (
-                            <button
-                              className={cn(
-                                'group flex w-full items-center rounded-md px-2 py-2 text-sm',
-                                active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                              )}
-                            >
-                              Profile Settings
-                            </button>
-                          )}
-                        </Menu.Item>
-                        <Menu.Item>
-                          {({ active }) => (
-                            <button
-                              className={cn(
-                                'group flex w-full items-center rounded-md px-2 py-2 text-sm',
-                                active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                              )}
-                            >
-                              Preferences
-                            </button>
-                          )}
-                        </Menu.Item>
-                      </div>
                       <div className="px-1 py-1">
                         <Menu.Item>
                           {({ active }) => (

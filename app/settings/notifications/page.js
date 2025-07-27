@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import Layout from '../../../components/Layout/Layout';
 import toast from 'react-hot-toast';
 
 export default function NotificationSettings() {
@@ -43,6 +44,7 @@ export default function NotificationSettings() {
   };
 
   return (
+    <Layout>
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Notification Settings</h1>
       <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -69,5 +71,6 @@ export default function NotificationSettings() {
         </button>
       </div>
     </div>
+    </Layout>
   );
 }
