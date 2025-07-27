@@ -1,22 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
-import { getDay, getHours } from 'date-fns';
 
 export async function GET(request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     await dbConnect();
-    const products = await Product.find({}).populate('category');
+    const products = await Product.find({}).populate('category').lean();
 
     if (products.length === 0) {
-      // Return a default empty state
       return NextResponse.json({
         keyMetrics: { totalValue: 0, gmroi: 0, lowStockCount: 0, avgProfitMargin: 0 },
         mostReorderedProduct: null,
@@ -24,12 +15,11 @@ export async function GET(request) {
         productValueDistribution: [],
         profitabilityByProduct: [],
         lowStockProducts: [],
-        statusDistribution: [],
-        salesActivityHeatmap: []
+        profitMarginDistribution: [],
       });
     }
 
-    // --- CALCULATIONS ---
+    // --- KEY METRICS CALCULATIONS ---
     let totalValue = 0, totalProfit = 0, totalCostOfGoodsSold = 0, totalInventoryCost = 0;
 
     products.forEach(p => {
@@ -41,7 +31,7 @@ export async function GET(request) {
       totalCostOfGoodsSold += p.costPrice * p.totalSold;
     });
 
-    const lowStockCount = await Product.countDocuments({ $expr: { $lte: ['$currentStock', '$minimumStock'] } });
+    const lowStockCount = products.filter(p => p.currentStock <= p.minimumStock).length;
 
     const keyMetrics = {
       totalValue,
@@ -50,13 +40,15 @@ export async function GET(request) {
       avgProfitMargin: totalValue > 0 ? (totalProfit / totalValue) * 100 : 0,
     };
     
-    const mostReorderedProduct = await Product.findOne().sort({ totalSold: -1 }).limit(1);
+    // --- OTHER REPORT WIDGETS ---
+    const mostReorderedProduct = products.sort((a, b) => b.totalSold - a.totalSold)[0] || null;
     const stockTurnoverRate = totalInventoryCost > 0 ? totalCostOfGoodsSold / totalInventoryCost : 0;
-    const lowStockProducts = await Product.find({ $expr: { $lte: ['$currentStock', '$minimumStock'] } }).limit(10);
+    const lowStockProducts = products.filter(p => p.currentStock <= p.minimumStock).slice(0, 10);
     
+    // --- CHART DATA PREPARATION ---
     const productsWithValue = products
       .map(p => ({
-        ...p.toObject(),
+        ...p,
         totalValue: p.price * p.currentStock,
         totalProfit: (p.price - p.costPrice) * p.currentStock
       }))
@@ -76,35 +68,39 @@ export async function GET(request) {
         productValueDistribution.push({ name: 'Others', value: otherProductsValue });
     }
 
-    const statusAggregation = await Product.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
-    const statusDistribution = statusAggregation.map(item => ({
-        name: item._id ? item._id.charAt(0).toUpperCase() + item._id.slice(1) : 'Unknown',
-        value: item.count
-    }));
+    // ## UPDATED LOGIC FOR PROFIT MARGIN DISTRIBUTION ##
+    const marginBuckets = {
+        "0-10%": { count: 0, products: [] },
+        "10-20%": { count: 0, products: [] },
+        "20-30%": { count: 0, products: [] },
+        "30-40%": { count: 0, products: [] },
+        "40-50%": { count: 0, products: [] },
+        "50%+": { count: 0, products: [] }
+    };
 
-    // ## NEW LOGIC FOR HEATMAP ##
-    const salesActivity = Array.from({ length: 7 * 24 }, () => 0);
     products.forEach(p => {
-        if (p.lastSold) {
-            const day = getDay(p.lastSold); // Sunday = 0, Saturday = 6
-            const hour = getHours(p.lastSold);
-            // Repeat for totalSold to simulate more activity
-            for (let i = 0; i < p.totalSold; i++) {
-                // Add some randomness to spread the data
-                const randomHour = (hour + Math.floor(Math.random() * 4 - 2) + 24) % 24;
-                salesActivity[day * 24 + randomHour]++;
-            }
+        if (p.price > 0) {
+            const margin = ((p.price - p.costPrice) / p.price) * 100;
+            let bucketKey;
+            if (margin < 10) bucketKey = "0-10%";
+            else if (margin < 20) bucketKey = "10-20%";
+            else if (margin < 30) bucketKey = "20-30%";
+            else if (margin < 40) bucketKey = "30-40%";
+            else if (margin < 50) bucketKey = "40-50%";
+            else bucketKey = "50%+";
+            
+            marginBuckets[bucketKey].count++;
+            marginBuckets[bucketKey].products.push(p.name); // Add product name to the list
         }
     });
-    const maxActivity = Math.max(...salesActivity);
-    const salesActivityHeatmap = salesActivity.map((count, i) => ({
-        day: Math.floor(i / 24),
-        hour: i % 24,
-        value: count,
-        // Normalize the value for coloring on the frontend
-        normalizedValue: maxActivity > 0 ? count / maxActivity : 0,
+
+    const profitMarginDistribution = Object.entries(marginBuckets).map(([name, data]) => ({
+        name,
+        "Products": data.count,
+        "productList": data.products // Include the list of products
     }));
-    
+
+    // --- FINAL RESPONSE ---
     return NextResponse.json({
       keyMetrics,
       mostReorderedProduct,
@@ -112,8 +108,7 @@ export async function GET(request) {
       productValueDistribution,
       profitabilityByProduct,
       lowStockProducts,
-      statusDistribution,
-      salesActivityHeatmap // Add new data to response
+      profitMarginDistribution,
     });
 
   } catch (error) {

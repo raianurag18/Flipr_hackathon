@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  ComposedChart, Bar, Line, Dot, LineChart, ScatterChart, Scatter, Cell,
+  ComposedChart, Bar, Line, Dot, LineChart, BarChart, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie
 } from 'recharts';
@@ -10,34 +10,24 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { DollarSign, TrendingUp, AlertTriangle, Percent, LoaderCircle, RotateCcw, Award, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// We no longer import Layout here
-
 const COLORS = ['#3b82f6', '#82ca9d', '#facc15', '#fb923c', '#8884d8', '#2dd4bf', '#ef4444', '#a855f7', '#14b8a6', '#64748b'];
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const formatCurrency = (value) => new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 0,
 }).format(value);
 
-const formatHour = (hour) => {
-    if (hour === 0) return '12AM';
-    if (hour === 12) return '12PM';
-    if (hour < 12) return `${hour}AM`;
-    return `${hour - 12}PM`;
+const formatIndianCurrencyAxis = (value) => {
+  const num = Math.abs(Number(value));
+  if (num >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+  if (num >= 1000) return `₹${(value / 1000).toFixed(0)}k`;
+  return `₹${value}`;
 };
 
-const getHeatmapColor = (value) => `rgba(59, 130, 246, ${value < 0.1 && value > 0 ? 0.1 : value})`;
-
 const getStockColor = (current, min) => {
-  if (current === undefined || min === undefined || min === 0) {
-    return '#64748b';
-  }
-  if (current < min) {
-    return '#ef4444';
-  }
-  if (current <= min * 1.1) {
-    return '#facc15';
-  }
+  if (current === undefined || min === undefined || min === 0) return '#64748b';
+  if (current < min) return '#ef4444';
+  if (current <= min * 1.1) return '#facc15';
   return '#82ca9d';
 };
 
@@ -59,6 +49,38 @@ const StatCard = ({ icon, title, value, unit, onIconClick }) => (
   </motion.div>
 );
 
+// NEW: A dedicated tooltip for the Profit Margin chart
+const MarginTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const productList = data.productList || [];
+    
+    return (
+      <div className="p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 shadow-xl max-w-xs">
+        <p className="font-semibold text-blue-600 mb-2">{`Margin: ${label}`}</p>
+        <div className="flex items-center text-sm space-x-2 mb-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: payload[0].color }}></div>
+          <span>Products:</span>
+          <span className="font-medium">{payload[0].value}</span>
+        </div>
+        
+        {productList.length > 0 && (
+          <div className="border-t pt-2 mt-2">
+            <p className="font-medium text-xs text-gray-600 mb-1">Products in this range:</p>
+            <ul className="list-disc list-inside max-h-28 overflow-y-auto text-xs text-gray-500 space-y-1">
+              {productList.map((productName, index) => (
+                <li key={index} className="truncate">{productName}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -73,19 +95,6 @@ const CustomTooltip = ({ active, payload, label }) => {
             </span>
           </div>
         ))}
-      </div>
-    );
-  }
-  return null;
-};
-
-const CustomHeatmapTooltip = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    return (
-      <div className="p-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 shadow-xl">
-        <p className="font-semibold text-blue-600 mb-1">{`${DAYS[data.day]} at ${formatHour(data.hour)}`}</p>
-        <p>Sales Count: <span className="font-medium">{data.value}</span></p>
       </div>
     );
   }
@@ -136,12 +145,18 @@ export default function ReportsClient() {
   const {
     keyMetrics, mostReorderedProduct, stockTurnoverRate,
     productValueDistribution = [], profitabilityByProduct = [], lowStockProducts = [], 
-    salesActivityHeatmap = []
+    profitMarginDistribution = []
   } = data;
+
+  const allChartValues = profitabilityByProduct.length > 0
+    ? profitabilityByProduct.flatMap(p => [p.totalValue, p.totalProfit])
+    : [0];
+  const yAxisMin = Math.min(0, ...allChartValues);
+  const yAxisMax = Math.max(0, ...allChartValues);
+  const yAxisDomain = [yAxisMin, yAxisMax * 1.1];
 
   return (
     <div className="space-y-6">
-      {/* Title is now inside the client component, styled like ProductsPage */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Inventory Reports</h1>
         <p className="text-gray-600 mt-1">
@@ -170,10 +185,16 @@ export default function ReportsClient() {
         <motion.div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Profitability (Top 10 Products)</h2>
           <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={profitabilityByProduct} margin={{ top: 5, right: 5, left: 10, bottom: 5 }}>
+            <ComposedChart data={profitabilityByProduct} margin={{ top: 5, right: 5, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.4} stroke="#e5e7eb"/>
               <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tick={{ angle: -25, textAnchor: 'end' }} height={50} />
-              <YAxis yAxisId="left" stroke="#6b7280" fontSize={10} tickFormatter={(value) => `₹${value / 1000}k`} />
+              <YAxis 
+                yAxisId="left" 
+                stroke="#6b7280" 
+                fontSize={10} 
+                tickFormatter={formatIndianCurrencyAxis}
+                domain={yAxisDomain}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{fontSize: "12px"}}/>
               <Bar yAxisId="left" dataKey="totalValue" name="Value">
@@ -201,7 +222,7 @@ export default function ReportsClient() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <motion.div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+        <motion.div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">Inventory Value by Product</h2>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
@@ -215,40 +236,19 @@ export default function ReportsClient() {
         </motion.div>
         
         <motion.div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800 mb-1">Sales Activity Heatmap</h2>
-          <p className="text-xs text-gray-500 mb-4">Shows sales volume by day of the week and hour.</p>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Profit Margin Distribution</h2>
           <ResponsiveContainer width="100%" height={250}>
-              <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 15 }}>
-                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.4} stroke="#e5e7eb"/>
-                  <XAxis 
-                      dataKey="hour" 
-                      type="number" 
-                      name="Hour" 
-                      domain={[0, 23]} 
-                      ticks={[0, 6, 12, 18, 23]} 
-                      tickFormatter={formatHour}
-                      stroke="#6b7280" 
-                      fontSize={10}
-                  />
-                  <YAxis
-                      dataKey="day"
-                      type="category"
-                      name="Day"
-                      domain={[0, 6]}
-                      tickFormatter={(day) => DAYS[day]}
-                      stroke="#6b7280"
-                      fontSize={10}
-                      width={35}
-                      tickLine={false}
-                      axisLine={false}
-                  />
-                  <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomHeatmapTooltip />} />
-                  <Scatter name="Sales Activity" data={salesActivityHeatmap} shape="square" isAnimationActive={false}>
-                      {salesActivityHeatmap.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={getHeatmapColor(entry.normalizedValue)} />
-                      ))}
-                  </Scatter>
-              </ScatterChart>
+            <BarChart data={profitMarginDistribution} margin={{ top: 5, right: 20, left: 15, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.4} stroke="#e5e7eb" />
+              <XAxis dataKey="name" fontSize={10} stroke="#6b7280" />
+              <YAxis label={{ value: 'No. of Products', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#6b7280' }} fontSize={10} stroke="#6b7280" allowDecimals={false} />
+              <Tooltip content={<MarginTooltip />} cursor={{fill: 'rgba(243, 244, 246, 0.5)'}} />
+              <Bar dataKey="Products" radius={[4, 4, 0, 0]}>
+                 {profitMarginDistribution.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </motion.div>
       </div>
