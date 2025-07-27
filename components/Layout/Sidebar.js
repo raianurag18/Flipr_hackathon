@@ -61,6 +61,13 @@ const navigation = [
     permission: 'view_reports',
     description: 'Analytics & Reports'
   },
+  { 
+    name: 'Backup', 
+    href: '/settings/backup', 
+    icon: DocumentArrowDownIcon, 
+    permission: 'view_inventory',
+    description: 'Data Backup & Export'
+  },
 ];
 
 export default function Sidebar({ session, collapsed, onToggleCollapse }) {

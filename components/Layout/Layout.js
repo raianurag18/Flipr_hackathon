@@ -16,6 +16,8 @@ import Sidebar from './Sidebar';
 import { cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button';
+import SyncManager from '../SyncManager';
+import { Toaster } from 'react-hot-toast';
 
 export default function Layout({ children }) {
   const { data: session } = useSession();
@@ -355,6 +357,8 @@ export default function Layout({ children }) {
           </main>
         </div>
       </div>
+      <Toaster position="top-right" />
+      <SyncManager />
     </div>
   );
 }

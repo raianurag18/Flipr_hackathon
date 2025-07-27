@@ -16,6 +16,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { formatCurrency, formatDate, formatCompactCurrency } from '../../lib/utils';
 import { toast } from 'react-hot-toast';
+import { db } from '../../lib/db';
 
 const StockUpdateModal = ({ product, isOpen, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -32,21 +33,48 @@ const StockUpdateModal = ({ product, isOpen, onClose, onUpdate }) => {
     e.preventDefault();
     setLoading(true);
 
+    const movementData = {
+      productId: product._id,
+      ...formData,
+      quantity: parseInt(formData.quantity),
+    };
+
     try {
+     if (navigator.onLine) {
       const response = await fetch('/api/inventory/movement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: product._id,
-          ...formData,
-          quantity: parseInt(formData.quantity)
-        })
+        body: JSON.stringify(movementData),
       });
 
       if (response.ok) {
         toast.success('Stock updated successfully');
         onUpdate();
         onClose();
+        } else {
+          const data = await response.json();
+          throw new Error(data.message || 'Failed to update stock');
+        }
+      } else {
+        // Offline: queue the update
+        await db.syncQueue.add({
+          type: 'inventory-movement',
+          payload: {
+            url: '/api/inventory/movement',
+            method: 'POST',
+            body: movementData,
+          },
+          timestamp: new Date(),
+        });
+        toast.success('Update queued and will sync when online.');
+        onUpdate(); // Optimistically update UI
+        onClose();
+      }
+    } catch (error) {
+      toast.error(`Error: ${error.message}`);
+      // Optionally, add to a failed log if needed
+    } finally {
+      setLoading(false);
         setFormData({
           type: 'in',
           quantity: '',
@@ -55,14 +83,6 @@ const StockUpdateModal = ({ product, isOpen, onClose, onUpdate }) => {
           notes: '',
           location: ''
         });
-      } else {
-        const data = await response.json();
-        toast.error(data.message || 'Failed to update stock');
-      }
-    } catch (error) {
-      toast.error('Error updating stock');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -158,8 +178,9 @@ const StockUpdateModal = ({ product, isOpen, onClose, onUpdate }) => {
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
               className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
             >
-              <option value="">Select reason</option>
+              <option value="">Select a reason</option>
               <option value="purchase">Purchase</option>
               <option value="sale">Sale</option>
               <option value="return">Return</option>
