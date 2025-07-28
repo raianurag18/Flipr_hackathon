@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useInterval } from '../hooks/useInterval';
 import { db, syncToServer } from '../lib/db';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,22 +51,11 @@ const SyncManager = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (initialLoad.current) {
-      initialLoad.current = false;
-      if (isOnline) {
-        handleSync();
-      }
-      return;
-    }
-
+  useInterval(() => {
     if (isOnline) {
-      toast.success("You're back online!");
       handleSync();
-    } else {
-      toast.error("You've gone offline.");
     }
-  }, [isOnline, handleSync]);
+  }, 10000); // Sync every 10 seconds
 
   const getStatus = () => {
     if (!isOnline) {
