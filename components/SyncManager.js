@@ -34,6 +34,19 @@ const SyncManager = () => {
     };
   }, []);
 
+  const handleSync = useCallback(async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await syncToServer();
+    } catch (error) {
+      console.error('Sync failed', error);
+      toast.error('An error occurred during sync.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isSyncing]);
+
   useEffect(() => {
     if (initialLoad.current) {
       initialLoad.current = false;
@@ -50,19 +63,6 @@ const SyncManager = () => {
       toast.error("You've gone offline.");
     }
   }, [isOnline, handleSync]);
-
-  const handleSync = useCallback(async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    try {
-      await syncToServer();
-    } catch (error) {
-      console.error('Sync failed', error);
-      toast.error('An error occurred during sync.');
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [isSyncing]);
 
   const getStatus = () => {
     if (!isOnline) {
