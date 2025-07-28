@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useInventoryContext } from '../../context/InventoryContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   PlusIcon,
@@ -388,10 +388,8 @@ const ProductModal = ({ product, isOpen, onClose, onSave, categories }) => {
 };
 
 export default function ProductsPage() {
-  const { session } = useAuth(['view_inventory']);
-  const [products, setProducts] = useState([]);
+  const { products, loading, refetch } = useInventoryContext();
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -402,31 +400,15 @@ export default function ProductsPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchProducts();
     fetchCategories();
-  }, [currentPage, searchTerm, selectedCategory]);
+  }, []);
 
-  const fetchProducts = async () => {
-    try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '12'
-      });
-      
-      if (searchTerm) params.append('search', searchTerm);
-      if (selectedCategory) params.append('category', selectedCategory);
-
-      const response = await fetch(`/api/products?${params}`);
-      const data = await response.json();
-      
-      setProducts(data.products || []);
-      setTotalPages(data.pagination?.pages || 1);
-      setLoading(false);
-    } catch (error) {
-      toast.error('Failed to fetch products');
-      setLoading(false);
+  useEffect(() => {
+    if (products) {
+      const pages = Math.ceil(products.length / 12);
+      setTotalPages(pages > 0 ? pages : 1);
     }
-  };
+  }, [products]);
 
   const fetchCategories = async () => {
     try {
@@ -458,7 +440,7 @@ export default function ProductsPage() {
 
       if (response.ok) {
         toast.success('Product deleted successfully');
-        fetchProducts();
+        refetch();
       } else {
         toast.error('Failed to delete product');
       }
@@ -614,7 +596,7 @@ export default function ProductsPage() {
             product={selectedProduct}
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
-            onSave={fetchProducts}
+            onSave={refetch}
             categories={categories}
           />
         </AnimatePresence>

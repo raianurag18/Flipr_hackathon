@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useInventoryContext } from '../../context/InventoryContext';
 import { motion } from 'framer-motion';
 import { 
   ArrowUpIcon,
@@ -342,40 +342,10 @@ const MovementCard = ({ movement }) => {
 };
 
 export default function InventoryPage() {
-  const { session } = useAuth(['view_inventory']);
-  const [products, setProducts] = useState([]);
-  const [movements, setMovements] = useState([]);
+  const { products, movements, loading, refetch } = useInventoryContext();
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    fetchProducts();
-    fetchMovements();
-  }, []);
-
-  const fetchProducts = async () => {
-    try {
-      const response = await fetch('/api/products?limit=100');
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      toast.error('Failed to fetch products');
-    }
-  };
-
-  const fetchMovements = async () => {
-    try {
-      const response = await fetch('/api/inventory/movement?limit=20');
-      const data = await response.json();
-      setMovements(data.movements || []);
-      setLoading(false);
-    } catch (error) {
-      toast.error('Failed to fetch movements');
-      setLoading(false);
-    }
-  };
 
   const handleStockUpdate = (product) => {
     setSelectedProduct(product);
@@ -383,18 +353,19 @@ export default function InventoryPage() {
   };
 
   const handleUpdateComplete = () => {
-    fetchProducts();
-    fetchMovements();
+    refetch();
   };
 
-  const filteredProducts = products.filter(product =>
+  const filteredProducts = products?.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) || [];
 
-  const lowStockProducts = filteredProducts.filter(product => 
+  const lowStockProducts = filteredProducts?.filter(product => 
     product.currentStock <= product.minimumStock
-  );
+  ) || [];
+
+  const sortedMovements = movements?.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) || [];
 
   if (loading) {
     return (
@@ -428,7 +399,7 @@ export default function InventoryPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900">{products.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredProducts.length}</p>
               </div>
             </div>
           </div>
@@ -452,7 +423,7 @@ export default function InventoryPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Recent Movements</p>
-                <p className="text-2xl font-bold text-gray-900">{movements.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{sortedMovements.length}</p>
               </div>
             </div>
           </div>
@@ -466,7 +437,7 @@ export default function InventoryPage() {
                 <p className="text-sm text-gray-600">Total Value</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {formatCompactCurrency(
-                    products.reduce((sum, product) => 
+                    filteredProducts.reduce((sum, product) => 
                       sum + (product.currentStock * product.price), 0
                     )
                   )}
@@ -509,7 +480,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredProducts.slice(0, 10).map((product) => {
+                  {filteredProducts.map((product) => {
                     const isLowStock = product.currentStock <= product.minimumStock;
                     const isOutOfStock = product.currentStock === 0;
                     
@@ -562,8 +533,8 @@ export default function InventoryPage() {
             </div>
             
             <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
-              {movements.length > 0 ? (
-                movements.map((movement) => (
+              {sortedMovements.length > 0 ? (
+                sortedMovements.map((movement) => (
                   <MovementCard key={movement._id} movement={movement} />
                 ))
               ) : (

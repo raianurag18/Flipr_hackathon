@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useInventoryContext } from '../../context/InventoryContext';
 import { useAuth } from '../../hooks/useAuth';
 import { motion } from 'framer-motion';
 import { 
@@ -134,9 +135,11 @@ const MobileActivityCard = ({ activity }) => {
       </div>
       <div className="text-right flex-shrink-0 ml-2">
         <p className={`font-medium text-sm ${
-          quantity > 0 ? 'text-green-600' : 'text-red-600'
+          type === 'in' ? 'text-green-600' :
+          type === 'out' ? 'text-red-600' :
+          'text-blue-600'
         }`}>
-          {quantity > 0 ? '+' : ''}{quantity}
+          {type === 'in' ? '+' : ''}{quantity}
         </p>
         <p className="text-xs text-gray-500">
           {time}
@@ -147,7 +150,8 @@ const MobileActivityCard = ({ activity }) => {
 };
 
 export default function Dashboard() {
-  const { session, status } = useAuth(['view_inventory']);
+  const { session } = useAuth();
+  const { products, movements, loading } = useInventoryContext();
   const [dashboardData, setDashboardData] = useState({
     stats: {
       totalProducts: 0,
@@ -160,7 +164,6 @@ export default function Dashboard() {
     alerts: [],
     topProducts: []
   });
-  const [loading, setLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
 
   const handleExportReport = async () => {
@@ -183,7 +186,7 @@ export default function Dashboard() {
       const exportData = await response.json();
 
       // Generate CSV content
-      const csvContent = generateDashboardCSV(exportData);
+      const csvContent = generateDashboardCSV(exportData, session);
 
       // Create and download file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -208,7 +211,7 @@ export default function Dashboard() {
   };
 
   // CSV generation function
-  const generateDashboardCSV = (data) => {
+  const generateDashboardCSV = (data, session) => {
     const currentDate = new Date().toLocaleDateString('en-IN');
     const currentTime = new Date().toLocaleTimeString('en-IN');
 
@@ -266,47 +269,24 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (products && movements) {
+      const totalValue = products.reduce((acc, p) => acc + (p.price * p.currentStock), 0);
+      const lowStockItems = products.filter(p => p.currentStock > 0 && p.currentStock <= p.minimumStock).length;
+      const outOfStock = products.filter(p => p.currentStock === 0).length;
 
-  const fetchDashboardData = async () => {
-    try {
-      console.log('🔄 Fetching dashboard data...');
-      
-      const response = await fetch('/api/dashboard', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      setDashboardData(prevData => ({
+        ...prevData,
+        stats: {
+          totalProducts: products.length,
+          totalValue,
+          lowStockItems,
+          outOfStock,
+          recentMovements: movements.length,
         },
-      });
-
-      console.log('📡 API Response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Real data received:', data);
-        setDashboardData(data);
-      } else {
-        const errorData = await response.json();
-        console.error('❌ API Error:', errorData);
-        
-        // Show error message
-        toast.error('Failed to load dashboard data. Using fallback data.');
-        
-        // Use fallback dummy data
-        setDashboardData(getDummyData());
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('❌ Network Error:', error);
-      toast.error('Network error. Using offline data.');
-      
-      // Use fallback dummy data
-      setDashboardData(getDummyData());
-      setLoading(false);
+        recentActivity: movements,
+      }));
     }
-  };
+  }, [products, movements]);
 
   // Separate dummy data function
   const getDummyData = () => ({
@@ -354,7 +334,7 @@ export default function Dashboard() {
     ]
   });
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">

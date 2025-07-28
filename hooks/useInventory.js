@@ -3,7 +3,7 @@ import { db } from '../lib/db';
 import { toast } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 
-export const useInventory = () => {
+export default function useInventory() {
   const [loading, setLoading] = useState(true);
 
   const products = useLiveQuery(() => db.products.toArray(), []);
