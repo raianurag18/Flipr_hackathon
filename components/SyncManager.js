@@ -18,6 +18,7 @@ const SyncManager = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const syncQueue = useLiveQuery(() => db.syncQueue.toArray(), []);
   const initialLoad = useRef(true);
+  const isSyncingRef = useRef(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -35,7 +36,8 @@ const SyncManager = () => {
   }, []);
 
   const handleSync = useCallback(async () => {
-    if (isSyncing) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
     setIsSyncing(true);
     try {
       await syncToServer();
@@ -43,9 +45,10 @@ const SyncManager = () => {
       console.error('Sync failed', error);
       toast.error('An error occurred during sync.');
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  }, [isSyncing]);
+  }, []);
 
   useEffect(() => {
     if (initialLoad.current) {
