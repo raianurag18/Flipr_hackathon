@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -421,15 +421,7 @@ export default function ActivitiesPage() {
     dateTo: ''
   });
 
-  useEffect(() => {
-    fetchActivities();
-  }, [currentPage, fetchActivities]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [activities, searchTerm, filters, applyFilters]);
-
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -479,9 +471,9 @@ export default function ActivitiesPage() {
       toast.error('Error loading activities');
       setLoading(false);
     }
-  };
+  }, [currentPage]);
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...activities];
 
     // Search filter
@@ -517,7 +509,15 @@ export default function ActivitiesPage() {
     }
 
     setFilteredActivities(filtered);
-  };
+  }, [activities, searchTerm, filters]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const handleViewActivity = (activity) => {
     setSelectedActivity(activity);

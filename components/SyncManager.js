@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, syncToServer } from '../lib/db';
 import { toast } from 'react-hot-toast';
@@ -51,7 +51,7 @@ const SyncManager = () => {
     }
   }, [isOnline, handleSync]);
 
-  const handleSync = async () => {
+  const handleSync = useCallback(async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
@@ -62,7 +62,7 @@ const SyncManager = () => {
     } finally {
       setIsSyncing(false);
     }
-  };
+  }, [isSyncing]);
 
   const getStatus = () => {
     if (!isOnline) {

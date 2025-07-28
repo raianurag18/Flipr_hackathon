@@ -22,7 +22,9 @@ import Sidebar from './Sidebar';
 import { formatDisplayCurrency, cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button';
-import SyncManager from '../SyncManager';
+import dynamic from 'next/dynamic';
+
+const SyncManager = dynamic(() => import('../SyncManager'), { ssr: false });
 
 const SearchResultItem = ({ result, onSelect }) => {
   const getIcon = () => {
