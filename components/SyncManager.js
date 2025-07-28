@@ -49,7 +49,7 @@ const SyncManager = () => {
     } else {
       toast.error("You've gone offline.");
     }
-  }, [isOnline]);
+  }, [isOnline, handleSync]);
 
   const handleSync = async () => {
     if (isSyncing) return;

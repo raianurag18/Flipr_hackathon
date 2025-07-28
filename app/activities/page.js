@@ -423,11 +423,11 @@ export default function ActivitiesPage() {
 
   useEffect(() => {
     fetchActivities();
-  }, [currentPage]);
+  }, [currentPage, fetchActivities]);
 
   useEffect(() => {
     applyFilters();
-  }, [activities, searchTerm, filters]);
+  }, [activities, searchTerm, filters, applyFilters]);
 
   const fetchActivities = async () => {
     try {
