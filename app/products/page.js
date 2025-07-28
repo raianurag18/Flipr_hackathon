@@ -397,18 +397,24 @@ export default function ProductsPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [productToView, setProductToView] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [productsPerPage] = useState(12);
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    if (products) {
-      const pages = Math.ceil(products.length / 12);
-      setTotalPages(pages > 0 ? pages : 1);
-    }
-  }, [products]);
+  const filteredProducts = products?.filter(product => {
+    const searchTermLower = searchTerm.toLowerCase();
+    const nameMatch = product.name.toLowerCase().includes(searchTermLower);
+    const skuMatch = product.sku.toLowerCase().includes(searchTermLower);
+    const categoryMatch = !selectedCategory || product.category?._id === selectedCategory;
+    return (nameMatch || skuMatch) && categoryMatch;
+  }) || [];
+
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
   const fetchCategories = async () => {
     try {
@@ -526,10 +532,10 @@ export default function ProductsPage() {
         </div>
 
         {/* Products Grid */}
-        {products.length > 0 ? (
+        {filteredProducts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map((product) => (
+              {currentProducts.map((product) => (
                 <ProductCard
                   key={product._id}
                   product={product}

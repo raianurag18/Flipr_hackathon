@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, syncToServer } from '../lib/db';
 import { toast } from 'react-hot-toast';
@@ -17,33 +17,39 @@ const SyncManager = () => {
   const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const syncQueue = useLiveQuery(() => db.syncQueue.toArray(), []);
+  const initialLoad = useRef(true);
 
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      toast.success("You're back online!");
-      handleSync();
-    };
-    const handleOffline = () => {
-      setIsOnline(false);
-      toast.error("You've gone offline.");
-    };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    setIsOnline(navigator.onLine);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    // Initial check
-    if (navigator.onLine) {
-      handleOnline();
-    } else {
-      handleOffline();
-    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    if (initialLoad.current) {
+      initialLoad.current = false;
+      if (isOnline) {
+        handleSync();
+      }
+      return;
+    }
+
+    if (isOnline) {
+      toast.success("You're back online!");
+      handleSync();
+    } else {
+      toast.error("You've gone offline.");
+    }
+  }, [isOnline]);
 
   const handleSync = async () => {
     if (isSyncing) return;

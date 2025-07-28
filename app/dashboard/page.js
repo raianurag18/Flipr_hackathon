@@ -271,68 +271,57 @@ export default function Dashboard() {
   useEffect(() => {
     if (products && movements) {
       const totalValue = products.reduce((acc, p) => acc + (p.price * p.currentStock), 0);
-      const lowStockItems = products.filter(p => p.currentStock > 0 && p.currentStock <= p.minimumStock).length;
-      const outOfStock = products.filter(p => p.currentStock === 0).length;
+      const lowStockProducts = products.filter(p => p.currentStock > 0 && p.currentStock <= p.minimumStock);
+      const outOfStockProducts = products.filter(p => p.currentStock === 0);
+      const reorderRequiredProducts = lowStockProducts.filter(p => p.currentStock <= p.minimumStock / 2);
 
-      setDashboardData(prevData => ({
-        ...prevData,
+      const newAlerts = [
+        {
+          type: 'critical',
+          title: 'Out of Stock',
+          message: `${outOfStockProducts.length} products are completely out of stock`,
+          count: outOfStockProducts.length,
+          color: 'red'
+        },
+        {
+          type: 'warning',
+          title: 'Low Stock',
+          message: `${lowStockProducts.length} products are running low on inventory`,
+          count: lowStockProducts.length,
+          color: 'yellow'
+        },
+        {
+          type: 'info',
+          title: 'Reorder Required',
+          message: `${reorderRequiredProducts.length} products need immediate reordering`,
+          count: reorderRequiredProducts.length,
+          color: 'blue'
+        }
+      ];
+
+      const topProducts = [...products]
+        .sort((a, b) => (b.currentStock * b.price) - (a.currentStock * a.price))
+        .slice(0, 4)
+        .map(p => ({
+          name: p.name,
+          sales: p.currentStock, // Using current stock as a proxy for sales volume
+          revenue: p.currentStock * p.price
+        }));
+
+      setDashboardData({
         stats: {
           totalProducts: products.length,
           totalValue,
-          lowStockItems,
-          outOfStock,
+          lowStockItems: lowStockProducts.length,
+          outOfStock: outOfStockProducts.length,
           recentMovements: movements.length,
         },
         recentActivity: movements,
-      }));
+        alerts: newAlerts,
+        topProducts: topProducts,
+      });
     }
   }, [products, movements]);
-
-  // Separate dummy data function
-  const getDummyData = () => ({
-    stats: {
-      totalProducts: 1247,
-      totalValue: 2847293,
-      lowStockItems: 23,
-      outOfStock: 7,
-      recentMovements: 156
-    },
-    alerts: [
-      {
-        type: 'critical',
-        title: 'Out of Stock',
-        message: '7 products are completely out of stock',
-        count: 7,
-        color: 'red'
-      },
-      {
-        type: 'warning',
-        title: 'Low Stock',
-        message: '23 products are running low on inventory',
-        count: 23,
-        color: 'yellow'
-      },
-      {
-        type: 'info',
-        title: 'Reorder Required',
-        message: '12 products need immediate reordering',
-        count: 12,
-        color: 'blue'
-      }
-    ],
-    recentActivity: [
-      { id: 1, action: 'Stock In', product: 'MacBook Pro 16"', quantity: 50, time: '2 minutes ago' },
-      { id: 2, action: 'Stock Out', product: 'iPhone 15 Pro', quantity: -25, time: '15 minutes ago' },
-      { id: 3, action: 'New Product', product: 'Samsung Galaxy S24', quantity: 100, time: '1 hour ago' },
-      { id: 4, action: 'Stock Adjustment', product: 'Dell XPS 13', quantity: -5, time: '2 hours ago' }
-    ],
-    topProducts: [
-      { name: 'MacBook Pro 16"', sales: 145, revenue: 362250 },
-      { name: 'iPhone 15 Pro', sales: 238, revenue: 237762 },
-      { name: 'Samsung Galaxy S24', sales: 189, revenue: 170100 },
-      { name: 'Dell XPS 13', sales: 95, revenue: 142500 }
-    ]
-  });
 
   if (loading) {
     return (
@@ -442,7 +431,7 @@ export default function Dashboard() {
           </div>
           
           <div className="space-y-3">
-            {dashboardData.alerts.map((alert, index) => (
+            {dashboardData.alerts && dashboardData.alerts.map((alert, index) => (
               <MobileAlertCard key={index} {...alert} />
             ))}
           </div>
@@ -494,7 +483,7 @@ export default function Dashboard() {
             </div>
             
             <div className="space-y-2">
-              {dashboardData.topProducts.map((product, index) => (
+              {dashboardData.topProducts && dashboardData.topProducts.map((product, index) => (
                 <motion.div
                   key={`top-product-${index}`}
                   whileTap={{ scale: 0.98 }}

@@ -361,9 +361,9 @@ export default function InventoryPage() {
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  const lowStockProducts = filteredProducts?.filter(product => 
-    product.currentStock <= product.minimumStock
-  ) || [];
+  const totalProductsCount = products?.length || 0;
+  const lowStockProductsCount = products?.filter(p => p.currentStock <= p.minimumStock).length || 0;
+  const totalValue = products?.reduce((sum, p) => sum + (p.currentStock * p.price), 0) || 0;
 
   const sortedMovements = movements?.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) || [];
 
@@ -399,7 +399,7 @@ export default function InventoryPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredProducts.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalProductsCount}</p>
               </div>
             </div>
           </div>
@@ -411,7 +411,7 @@ export default function InventoryPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Low Stock</p>
-                <p className="text-2xl font-bold text-gray-900">{lowStockProducts.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{lowStockProductsCount}</p>
               </div>
             </div>
           </div>
@@ -436,11 +436,7 @@ export default function InventoryPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Value</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCompactCurrency(
-                    filteredProducts.reduce((sum, product) => 
-                      sum + (product.currentStock * product.price), 0
-                    )
-                  )}
+                  {formatCompactCurrency(totalValue)}
                 </p>
               </div>
             </div>
