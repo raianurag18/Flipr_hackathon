@@ -91,7 +91,9 @@ export async function PUT(request, { params }) {
 }
 
 // DELETE product
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
+  const id = context.params.id;
+
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -108,40 +110,26 @@ export async function DELETE(request, { params }) {
     await dbConnect();
 
     // Check if product exists
-    const product = await Product.findById(params.id);
+    const product = await Product.findById(id);
     if (!product) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });
     }
 
-    // Check if product has any inventory movements
-    const hasMovements = await InventoryMovement.findOne({ productId: params.id });
+    // Also delete associated inventory movements
+    await InventoryMovement.deleteMany({ productId: id });
     
-    if (hasMovements) {
-      // If product has movements, don't delete - just mark as discontinued
-      await Product.findByIdAndUpdate(params.id, {
-        status: 'discontinued',
-        updatedBy: session.user.id,
-        updatedAt: new Date()
-      });
-      
-      return NextResponse.json({
-        message: 'Product marked as discontinued (has inventory history)',
-        discontinued: true
-      });
-    } else {
-      // If no movements, safe to delete completely
-      await Product.findByIdAndDelete(params.id);
-      
-      return NextResponse.json({
-        message: 'Product deleted successfully',
-        deleted: true
-      });
-    }
+    // Now, delete the product itself
+    await Product.findByIdAndDelete(id);
+    
+    return NextResponse.json({
+      message: 'Product and associated movements deleted successfully',
+      deleted: true
+    });
 
   } catch (error) {
-    console.error('Error deleting product:', error);
+    console.error('Error in DELETE /api/products/[id]:', error);
     return NextResponse.json(
-      { message: 'Error deleting product' },
+      { message: 'Error deleting product', error: error.message },
       { status: 500 }
     );
   }

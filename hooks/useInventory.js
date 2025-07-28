@@ -25,8 +25,10 @@ export default function useInventory() {
       const { products: serverProducts } = await productsRes.json();
       const { movements: serverMovements } = await movementsRes.json();
 
-      // Bulk update local DB
+      // Clear and bulk update local DB
       await db.transaction('rw', db.products, db.movements, async () => {
+        await db.products.clear();
+        await db.movements.clear();
         await db.products.bulkPut(serverProducts);
         await db.movements.bulkPut(serverMovements);
       });
