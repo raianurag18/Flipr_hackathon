@@ -1,33 +1,219 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bars3Icon,
   BellIcon,
   MagnifyingGlassIcon,
+  ChevronRightIcon,
+  ChevronLeftIcon,
   ChevronDownIcon,
   XMarkIcon,
-  CogIcon
+  CogIcon,
+  CubeIcon,
+  TagIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
+import { useSearch } from '../../context/SearchContext';
 import Sidebar from './Sidebar';
-import { cn } from '../../lib/utils';
+import { formatDisplayCurrency, cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button';
 import SyncManager from '../SyncManager';
+
+const SearchResultItem = ({ result, onSelect }) => {
+  const getIcon = () => {
+    switch (result.type) {
+      case 'product':
+        return <CubeIcon className="h-5 w-5 text-blue-600" />;
+      case 'category':
+        return <TagIcon className="h-5 w-5 text-green-600" />;
+      case 'user':
+        return <UserIcon className="h-5 w-5 text-purple-600" />;
+      default:
+        return <CubeIcon className="h-5 w-5 text-gray-600" />;
+    }
+  };
+
+  const getBadgeColor = () => {
+    switch (result.type) {
+      case 'product': return 'bg-blue-100 text-blue-800';
+      case 'category': return 'bg-green-100 text-green-800';
+      case 'user': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <motion.div
+      whileHover={{ x: 4, backgroundColor: '#F9FAFB' }}
+      onClick={() => onSelect(result)}
+      className="flex items-center p-3 cursor-pointer border-b border-gray-100 last:border-b-0 group"
+    >
+      <div className="flex-shrink-0 mr-3">
+        {result.type === 'category' ? (
+          <div 
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+            style={{ backgroundColor: result.color }}
+          >
+            {result.icon}
+          </div>
+        ) : (
+          <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+            {getIcon()}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center mb-1">
+          <h4 className="font-medium text-gray-900 truncate mr-2">
+            {result.title}
+          </h4>
+          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getBadgeColor()}`}>
+            {result.type}
+          </span>
+        </div>
+        
+        <p className="text-sm text-gray-600 truncate mb-1">
+          {result.subtitle}
+        </p>
+        
+        {result.description && (
+          <p className="text-xs text-gray-500 truncate">
+            {result.description}
+          </p>
+        )}
+
+        {result.type === 'product' && (
+          <div className="flex items-center mt-2 space-x-4">
+            <span className="text-sm font-medium text-green-600">
+              {formatDisplayCurrency(result.price)}
+            </span>
+            <span className="text-xs text-gray-500">
+              Stock: {result.stock}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <ChevronRightIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+    </motion.div>
+  );
+};
+
+const SearchDropdown = () => {
+  const { 
+    searchResults, 
+    isSearching, 
+    showResults, 
+    selectResult,
+    goToSearchResults,
+    searchTerm,
+    setShowResults 
+  } = useSearch();
+  
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [setShowResults]);
+
+  if (!showResults) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        ref={dropdownRef}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto"
+      >
+        {isSearching ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span className="ml-3 text-gray-600">Searching...</span>
+          </div>
+        ) : searchResults.length > 0 ? (
+          <>
+            <div className="p-3 border-b border-gray-100">
+              <p className="text-sm text-gray-600">
+                Found {searchResults.length} results
+              </p>
+            </div>
+            
+            <div className="max-h-80 overflow-hidden">
+              {searchResults.map((result) => (
+                <SearchResultItem
+                  key={`${result.type}-${result.id}`}
+                  result={result}
+                  onSelect={selectResult}
+                />
+              ))}
+            </div>
+
+            <div className="p-3 border-t border-gray-100">
+              <button
+                onClick={() => goToSearchResults(searchTerm)}
+                className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium py-2 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                View all results →
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="p-8 text-center">
+            <MagnifyingGlassIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-2">No results found</p>
+            <p className="text-sm text-gray-400">
+              Try searching for products, categories, or SKUs
+            </p>
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+};
 
 export default function Layout({ children }) {
   const { data: session } = useSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  
-  // Notification settings state
   const [receiveLowStockAlerts, setReceiveLowStockAlerts] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const { 
+    searchTerm, 
+    handleSearchChange, 
+    clearSearch, 
+    goToSearchResults,
+    showResults 
+  } = useSearch();
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      goToSearchResults(searchTerm);
+    }
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      clearSearch();
+    }
+  };
 
   // Load user preferences
   useEffect(() => {
@@ -180,7 +366,11 @@ export default function Layout({ children }) {
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                   className="hidden lg:flex p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 mr-4"
                 >
-                  <Bars3Icon className="h-6 w-6" />
+                  {sidebarCollapsed ? (
+                    <ChevronRightIcon className="h-6 w-6" />
+                  ) : (
+                    <ChevronLeftIcon className="h-6 w-6" />
+                  )}
                 </button>
 
                 {/* Mobile Logo */}
@@ -195,14 +385,30 @@ export default function Layout({ children }) {
 
                 {/* Desktop Search */}
                 <div className="hidden md:block ml-6">
-                  <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      className="pl-10 pr-4 py-2 w-48 lg:w-64 xl:w-80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    />
-                  </div>
+                  <form onSubmit={handleSearchSubmit} className="relative">
+                    <div className="relative">
+                      <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        onKeyDown={handleSearchKeyDown}
+                        placeholder="Search products, categories, SKUs..."
+                        className="w-full pl-12 pr-12 py-3 bg-white border border-gray-300 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-500 transition-all duration-200"
+                      />
+                      
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={clearSearch}
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                  <SearchDropdown />
                 </div>
               </div>
 
