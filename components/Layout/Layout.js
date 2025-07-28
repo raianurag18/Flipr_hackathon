@@ -311,7 +311,7 @@ export default function Layout({ children }) {
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h1 className="text-lg font-bold text-gray-900">Premium</h1>
+                    <h1 className="text-lg font-bold text-gray-900">Stoqkify</h1>
                     <p className="text-xs text-gray-500 -mt-1">Inventory</p>
                   </div>
                 </div>
@@ -380,7 +380,7 @@ export default function Layout({ children }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                   </div>
-                  <span className="ml-2 text-base font-bold text-gray-900">Premium</span>
+                  <span className="ml-2 text-base font-bold text-gray-900">Stoqkify</span>
                 </div>
 
                 {/* Desktop Search */}
